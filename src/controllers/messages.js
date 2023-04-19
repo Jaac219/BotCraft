@@ -121,16 +121,10 @@ const subNewMessage = async () => {
       
       /* Valida si la primera palabra del texto contiene un comando 
       iniciado con '/' ejm: /chatGpt y lo devuelve '/chatGpt' 
-      de lo contrario devuelve false */
+      de lo contrario devuelve '' */
       
       let opt = !!message.match(/^\/\S*/) ? message.match(/^\/\S*/)[0] : ''
       if(!opt && initValMessages[conversationId]) opt = initValMessages[conversationId]
-
-      // if(opt && initialize[conversationId]){
-      //   if(opt != initialize[conversationId]){
-          
-      //   }
-      // }
       
       switch (opt) {
         case '/chatGpt':
