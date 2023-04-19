@@ -2,7 +2,11 @@ const express = require('express')
 const cors = require('cors')
 const { Server } = require('http')
 
+const fetch = require('node-fetch')
+global.fetch = fetch
+
 const routes = require('./routes')
+const { subNewMessage } = require('./controllers/messages')
 
 const app = express()
 
@@ -12,6 +16,7 @@ app.use(express.json())
 app.use('/api/v1', routes)
 
 const server = Server(app)
+subNewMessage()
 
 server.listen('5006', ()=>{
   console.log(`Servidor iniciado http://127.0.0.1:5006/api/v1`);

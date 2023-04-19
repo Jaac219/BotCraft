@@ -24,6 +24,10 @@
     "express": "^4.18.2",
     "graphql-request": "^6.0.0",
     "graphql-ws": "^5.12.1",
+    "node-fetch": "^2.6.9",
+    "openai": "^3.2.1",
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.19.5",
     "ws": "^8.13.0"
   }
 }

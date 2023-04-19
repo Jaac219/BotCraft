@@ -3,7 +3,7 @@ const { sendMessage, subNewMessage } = require('../controllers/messages')
 
 const routes = Router()
 
-routes.get('/', subNewMessage)
-routes.post('/', sendMessage)
+// routes.get('/', subNewMessage)
+// routes.post('/', sendMessage)
 
 module.exports = routes
