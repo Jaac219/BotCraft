@@ -6,8 +6,10 @@ const { Configuration, OpenAIApi } = require('openai')
 
 const qrcode = require('qrcode-terminal');
 
-const { Client } = require('whatsapp-web.js');
-const wtp = new Client();
+const { Client, LocalAuth } = require('whatsapp-web.js');
+const wtp = new Client({
+  authStrategy: new LocalAuth()
+});
 
 (()=>{
   wtp.on('qr', (qr) => {
@@ -29,15 +31,20 @@ const wtp = new Client();
   wtp.initialize();
 })()
 
-const params = {
+const chaskyParams= {
   'x-token': '657258408adca3eef369247d52dd7e3e43f876cd7623d23e83c5917bdf5438a1c5b32d0be871dcf23c9edc09d3023f74522aed077d925877a32675dbfd196cdd',
+  'x-secret': '12345abc'
+}
+
+const futurAppsParams = {
+  'x-token': '2750d075b92dffdbc60939a45da7472f3b2058007e4a24668332fc26ddb111753d0a418257f7e1b5773fbb31ce18f42acfb8eba3975c9ce343dd8aa28bf2abc0',
   'x-secret': '12345abc'
 }
 
 const client = createClient({
   webSocketImpl: WebSocket,
   url: 'ws://127.0.0.1:22248/ws',
-  connectionParams: params 
+  connectionParams: chaskyParams
 })
 
 const configuration = new Configuration({
@@ -70,7 +77,7 @@ const sendMessage = async (dataInput)=>{
         receptorIds: receptorIds,
         conversationId: conversationId
       }
-    }, { headers: params })
+    }, { headers: chaskyParams})
   } catch (error) {
     console.log(error);
   }
@@ -87,11 +94,55 @@ const sendTyping = async (dataInput)=>{
         typing,
         conversationId
       }
-    }, { headers: params })
+    }, { headers: chaskyParams})
   } catch (error) {
     console.log(error);
   }
 }
+
+const getSupProjects = async () => {
+  try {
+    const { data } = await axios.post('http://10.2.20.113:25787/gql', {
+      query: `query SUP_Project {
+        SUP_Project {
+          _id
+          key
+        }
+      }`
+    }, { headers: futurAppsParams})
+
+    const { data: { SUP_Project }} = data
+    return SUP_Project
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+const getSubTypes = async (projectKey) => {
+  try {
+    const { data } = await axios.post('http://10.2.20.113:25787/gql', {
+      query: `query SUP_Type($filter: SUP_Type_filter) {
+        SUP_Type(filter: $filter) {
+          _id
+          key
+        }
+      }`,
+      variables: {
+        filter: {
+          projectKey
+        }
+      }
+    }, { headers: futurAppsParams})
+
+    const { data: { SUP_Type }} = data
+    return SUP_Type
+
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+/// ---------------------------- services -----------------------------------
 
 const chatGptService = async({ message, conversationId, receptorIds }) =>{
   chatGptMessage({message}).then(async (pongMessage)=>{
@@ -102,12 +153,89 @@ const chatGptService = async({ message, conversationId, receptorIds }) =>{
   await sendTyping({ conversationId, typing: true })
 }
 
-const wtpService = async({message})=>{
+let phone = ''
+const wtpService = async({ message, conversationId, receptorIds })=>{
   try {
-    let phone = message.match(/#(\d+)\s/)[1]
-    console.log(phone)
+    let rgx = !!message.match(/#(\d+)/) ? message.match(/#(\d+)/)[1]: ''
+    if(rgx) phone = rgx
+    if(!phone) {
+      await sendMessage({ pongMessage: 'Debe ingresar un #wpt',  conversationId, receptorIds})
+      return
+    }
+    
     message = message.replace(`#${phone}`, '')
-    wtp.sendMessage(`${phone}@c.us`, message);
+    if(!message) return
+
+    wtp.sendMessage(`${phone}@c.us`, message).then(async ()=>{
+      sendMessage({ pongMessage: 'Mensaje enviado a su destinatario',  conversationId, receptorIds })
+    }).catch(async ()=>{
+      sendMessage({ pongMessage: 'Error al enviar el mensaje',  conversationId, receptorIds})
+    }).finally(async()=>{
+      sendTyping({ conversationId, typing: false })
+    })
+
+    await sendTyping({ conversationId, typing: true })
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+const chatOpt = {
+  state: 'initChat',
+  options: {
+    initChat: {
+      sms: 'Bienvenido al servicio de registro de tickets <br /> ¿sobre cual proyecto desea registrar la incidencia? <br /> '
+    },
+    selectType: {
+      sms: 'Seleccione un tipo de servicio para la incidencia',
+    },
+    selectService: {
+      sms: 'Seleccione el servicio'
+    },
+    sendTitle: 'Ingrese un titulo para su ticket',
+    sendDescription: 'Ingrese una descripcion para su ticket'
+  }
+}
+const ticketService = async ({ message, conversationId, receptorIds })=>{
+  try {
+    const { state, options } = chatOpt
+    let pongMessage = ''
+
+    switch (state) {
+      case 'initChat':
+        let projects = await getSupProjects()
+        pongMessage = `${options[state].sms}<br/> `
+
+        projects.forEach((val, i)=>{
+          pongMessage += `${i+1}. ${val.key} <br/>`
+        })
+
+        await sendMessage({ pongMessage, conversationId, receptorIds })
+
+        chatOpt.state = 'selectType'
+        options.selectType.projects = projects
+
+        break;
+      case 'selectType':
+        let selectProject = options.selectType.projects[message[0]-1]
+        let types = await getSubTypes(selectProject.key)
+        pongMessage = `${options[state].sms}<br/> `
+
+        types.forEach((val, i)=>{
+          pongMessage += `${i+1}. ${val.key} <br/>`
+        })
+
+        await sendMessage({ pongMessage, conversationId, receptorIds })
+        chatOpt.state = 'selectService'
+        options.selectService.types = types
+
+        break;
+      case 'selectService':
+
+        break
+      default:
+        break;
+    }
   } catch (error) {
     console.log(error);
   }
@@ -126,28 +254,28 @@ const subNewMessage = async () => {
       let opt = !!message.match(/^\/\S*/) ? message.match(/^\/\S*/)[0] : ''
       if(!opt && initValMessages[conversationId]) opt = initValMessages[conversationId]
       
+      if(message.indexOf(`${opt} `) !== -1){
+        message = message.replace(`${opt} `, '')
+      }
+
       switch (opt) {
         case '/chatGpt':
-          if(message.indexOf('/chatGpt ') !== -1){
-            message = message.replace('/chatGpt ', '')
-          }
-          console.log(message);
           chatGptService({ message, conversationId, receptorIds })
-          initValMessages[conversationId] = '/chatGpt'
           break;
         
         case '/wtp':
-          if(message.indexOf('/wtp ') !== -1){
-            message = message.replace('/wtp ', '')
-          }
-          console.log(message);
-          wtpService({message})
-          initValMessages[conversationId] = '/wtp'
+          wtpService({ message, conversationId, receptorIds })
           break
-      
-        default:
-          break;
+        
+        case '/ticket':
+          ticketService({ message, conversationId, receptorIds })
+          break
+
+          default:
+            break;
       }
+
+      initValMessages[conversationId] = opt
     };
 
     const query = `subscription Subscription {
@@ -167,6 +295,6 @@ const subNewMessage = async () => {
 }
 
 module.exports = {
-  sendMessage,
+  sendMessage,  
   subNewMessage
 }
