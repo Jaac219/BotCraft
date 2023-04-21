@@ -142,6 +142,50 @@ const getSubTypes = async (projectKey) => {
   }
 }
 
+const getSubServices = async (typeId) => {
+  try {
+    const { data } = await axios.post('http://10.2.20.113:25787/gql', {
+      query: `query SUP_Service($filter: SUP_Service_filter) {
+        SUP_Service(filter: $filter) {
+          _id
+          key
+        }
+      }`,
+      variables: {
+        filter: {
+          typeId
+        }
+      }
+    }, { headers: futurAppsParams})
+
+    const { data: { SUP_Service }} = data
+    return SUP_Service
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+const saveSubTicket = async ({ticketInput}) => {
+  console.log(ticketInput);
+  try {
+    const { data } = await axios.post('http://10.2.20.113:25787/gql', {
+      query: `mutation Mutation($ticketInput: SUP_Ticket_input) {
+        SUP_Ticket_save(ticketInput: $ticketInput)
+      }`,
+      variables: {
+        ticketInput
+      }
+    }, { headers: futurAppsParams})
+    console.log(data);
+    const { data: { SUP_Ticket_save }} = data
+    return SUP_Ticket_save
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+
+
 /// ---------------------------- services -----------------------------------
 
 const chatGptService = async({ message, conversationId, receptorIds }) =>{
@@ -180,25 +224,31 @@ const wtpService = async({ message, conversationId, receptorIds })=>{
   }
 }
 
-const chatOpt = {
+let chatOpt = {
   state: 'initChat',
   options: {
     initChat: {
       sms: 'Bienvenido al servicio de registro de tickets <br /> ¿sobre cual proyecto desea registrar la incidencia? <br /> '
     },
     selectType: {
-      sms: 'Seleccione un tipo de servicio para la incidencia',
+      sms: 'Seleccione un tipo <br />',
     },
     selectService: {
-      sms: 'Seleccione el servicio'
+      sms: 'Seleccione el servicio <br />'
     },
-    sendTitle: 'Ingrese un titulo para su ticket',
-    sendDescription: 'Ingrese una descripcion para su ticket'
-  }
+    sendTitle: {
+      sms: 'Ingrese un titulo para su ticket'
+    },
+    sendDescription: {
+      sms: 'Ingrese una descripcion para su ticket'
+    }
+  },
+  ticketInput: {}
 }
+const resetOpt = {...chatOpt}
 const ticketService = async ({ message, conversationId, receptorIds })=>{
   try {
-    const { state, options } = chatOpt
+    const { state, options, ticketInput} = chatOpt
     let pongMessage = ''
 
     switch (state) {
@@ -217,6 +267,12 @@ const ticketService = async ({ message, conversationId, receptorIds })=>{
 
         break;
       case 'selectType':
+        if(isNaN(message[0]) || message[0] < 1 || message[0] > options.selectType.projects.length) {
+          chatOpt.state = 'initChat'
+          ticketService({ message, conversationId, receptorIds })
+          return
+        }
+        
         let selectProject = options.selectType.projects[message[0]-1]
         let types = await getSubTypes(selectProject.key)
         pongMessage = `${options[state].sms}<br/> `
@@ -229,8 +285,69 @@ const ticketService = async ({ message, conversationId, receptorIds })=>{
         chatOpt.state = 'selectService'
         options.selectService.types = types
 
+        chatOpt.ticketInput = {
+          ...ticketInput,
+          projectKey: selectProject.key
+        }
+
         break;
       case 'selectService':
+        if(isNaN(message[0]) || message[0] < 1 || message[0] > options.selectService.types.length) {
+          chatOpt.state = 'initChat'
+          ticketService({ message, conversationId, receptorIds })
+          return
+        }
+        let selectType = options.selectService.types[message[0]-1]
+
+        let services = await getSubServices(selectType._id)
+
+        pongMessage = `${options[state].sms}<br/> `
+
+        services.forEach((val, i)=>{
+          pongMessage += `${i+1}. ${val.key} <br/>`
+        })
+
+        await sendMessage({ pongMessage, conversationId, receptorIds })
+        chatOpt.state = 'sendTitle'
+        options.sendTitle.services = services
+
+        chatOpt.ticketInput = {
+          ...ticketInput,
+          typeId: selectType._id
+        }
+
+        break
+      case 'sendTitle':
+        if(isNaN(message[0]) || message[0] < 1 || message[0] > options.sendTitle.services.length) {
+          chatOpt.state = 'initChat'
+          ticketService({ message, conversationId, receptorIds })
+          return
+        }
+        let selectService = options.sendTitle.services[message[0]-1]
+
+        pongMessage = `${options[state].sms}`
+        await sendMessage({ pongMessage, conversationId, receptorIds })
+        chatOpt.state = 'sendDescription'
+
+        chatOpt.ticketInput = {
+          ...ticketInput,
+          serviceKey: selectService.key
+        }
+
+        break
+      case 'sendDescription':  
+        pongMessage = `${options[state].sms}`
+        await sendMessage({ pongMessage, conversationId, receptorIds })
+        chatOpt.state = 'register'
+
+        chatOpt.ticketInput.title = message
+
+        break
+      case 'register':
+        chatOpt.ticketInput.description = message
+        const rs  = await saveSubTicket(chatOpt)
+        await sendMessage({ pongMessage: `Ticket ${rs} creado correctamente`, conversationId, receptorIds })
+        chatOpt = resetOpt
 
         break
       default:
