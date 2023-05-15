@@ -1,22 +1,39 @@
 const axios = require("axios");
 const { generateConfig } = require("../utils");
-const CONSTANTS = require("../constants");
 const nodemailer = require("nodemailer");
 const { google } = require("googleapis");
-const {PubSub} = require('@google-cloud/pubsub');
-const {Storage} = require('@google-cloud/storage');
+const {OAuth2Client} = require('google-auth-library');
+const jwt = require('jsonwebtoken');
+
+
+// const {PubSub} = require('@google-cloud/pubsub');
 
 require("dotenv").config();
+let globalTokens = {}
 
 const oAuth2Client = new google.auth.OAuth2(
   process.env.CLIENT_ID,
   process.env.CLIENT_SECRET,
   process.env.REDIRECT_URI
 );
+const client = new OAuth2Client(process.env.CLIENT_ID);
 
-oAuth2Client.setCredentials({ refresh_token: process.env.REFRESH_TOKEN });
 
-async function test(req, res) {
+oAuth2Client.on('tokens', (tokens) => {
+  if (tokens.refresh_token) {
+    globalTokens = tokens
+    oAuth2Client.setCredentials(tokens);
+  }
+});
+
+async function login(req, res){
+  const { code, authuser, prompt, scope } = req.body
+  const { tokens } = await oAuth2Client.getToken(code)
+  globalTokens = tokens
+  oAuth2Client.setCredentials(tokens)
+}
+
+async function watch(req, res) {
   try {
     const gmail = google.gmail({ version: 'v1', auth: oAuth2Client })
     // const resp = await gmail.users.labels.list({
@@ -46,8 +63,44 @@ async function test(req, res) {
   }
 }
 
-function endPoint(req, res){
-  console.log('yessss', req)
+async function endPoint(req, res){
+  try {
+    // if (globalTokens.refresh_token) {
+      const { body: { message: { data, messageId, publishTime, attributes } }} = req
+      // console.log(req.header('Authorization'), 'Message ------->');
+      req.params.messageId = messageId
+
+      const bearer = req.header('Authorization');
+      const [, token] = bearer.match(/Bearer (.*)/);
+
+      console.log('token: ');
+    
+
+      const decodedToken = jwt.decode(token);
+
+      const ticket = await client.verifyIdToken({
+        idToken: token,
+        audience: decodedToken.aud,
+      });
+      
+      const payload = ticket.getPayload();
+      const userid = payload['sub'];
+
+      // The message is a unicode string encoded in base64.
+      const message = Buffer.from(req.body.message.data, 'base64').toString(
+        'utf-8'
+      );
+
+      console.log(message);
+      
+    // }
+    res.status(200)
+  } catch (error) {
+    console.log(error);
+    res.status(400)
+  }
+  // let ms = await readMail(req, res)
+  // console.log('New Message', ms);
 }
 
 // async function authenticateImplicitWithAdc() {
@@ -70,59 +123,69 @@ function endPoint(req, res){
 // authenticateImplicitWithAdc();
 
 
-async function listenForMessages(req, res) {
-  // References an existing subscription
-  await test(req, res)
+// async function listenForMessages(req, res) {
+//   // References an existing subscription
+//   await test(req, res)
 
-  const pubSubClient = new PubSub({
-    projectId: 'famous-robot-386420'
-  });
-  const subscription = pubSubClient.subscription('test')
+//   const pubSubClient = new PubSub({
+//     projectId: 'famous-robot-386420'
+//   });
+//   const subscription = pubSubClient.subscription('test')
 
-  // Create an event handler to handle messages
-  let messageCount = 0
-  const messageHandler = (message) => {
-    // console.log(`Received message ${message.id}:`)
-    // console.log(`\tData: ${message.data}`)
-    console.log(`\tData: ${message}`)
-    console.log(`\tData2: ${message.data}`)
+//   // Create an event handler to handle messages
+//   let messageCount = 0
+//   const messageHandler = (message) => {
+//     // console.log(`Received message ${message.id}:`)
+//     // console.log(`\tData: ${message.data}`)
+//     console.log(`\tData: ${message}`)
+//     console.log(`\tData2: ${message.data}`)
 
-    messageCount += 1
+//     messageCount += 1
     
-    // req.params.messageId = message.id
-    // readMail(req, res)
-    // "Ack" (acknowledge receipt of) the message
-    message.ack()
-  }
+//     // req.params.messageId = message.id
+//     // readMail(req, res)
+//     // "Ack" (acknowledge receipt of) the message
+//     message.ack()
+//   }
 
-  // Listen for new messages until timeout is hit
-  subscription.on('message', messageHandler)
+//   // Listen for new messages until timeout is hit
+//   subscription.on('message', messageHandler)
 
-  // Wait a while for the subscription to run. (Part of the sample only.)
-  // setTimeout(() => {
-  //   subscription.removeListener('message', messageHandler)
-  //   console.log(`${messageCount} message(s) received.`)
-  // }, 10 * 1000)
-}
+//   // Wait a while for the subscription to run. (Part of the sample only.)
+//   // setTimeout(() => {
+//   //   subscription.removeListener('message', messageHandler)
+//   //   console.log(`${messageCount} message(s) received.`)
+//   // }, 10 * 1000)
+// }
 
 async function sendMail(req, res) {
   try {
+    console.log('global tokens', globalTokens);
     const accessToken = await oAuth2Client.getAccessToken();
+
+    const auth = {
+      type: "OAuth2",
+      user: "dev16@codecraftdev.com",
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      refreshToken: globalTokens.refresh_token,
+    }
+
     const transport = nodemailer.createTransport({
       service: "gmail",
-      auth: {
-        ...CONSTANTS.auth,
-        accessToken: accessToken,
-      },
-    });
+      auth: { ...auth, accessToken }
+    })
 
     const mailOptions = {
-      ...CONSTANTS.mailoptions,
-      text: "The Gmail API with NodeJS works",
+      from: "Jaac <jaac219@gmail.com>",
+      to: "dev16@codecraftdev.com",
+      subject: "Gmail API NodeJS",
+      text: "Pong ...",
     };
 
     const result = await transport.sendMail(mailOptions);
-    res.send(result);
+    console.log(result);
+
   } catch (error) {
     console.log(error);
     res.send(error);
@@ -131,7 +194,7 @@ async function sendMail(req, res) {
 
 async function getUser(req, res) {
   try {
-    const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/profile`;
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/profile`;
     const { token } = await oAuth2Client.getAccessToken();
     const config = generateConfig(url, token);
     const response = await axios(config);
@@ -144,7 +207,7 @@ async function getUser(req, res) {
 
 async function getDrafts(req, res) {
   try {
-    const url = `https://gmail.googleapis.com/gmail/v1/users/${req.params.email}/drafts`;
+    const url = `https://gmail.googleapis.com/gmail/v1/users/me/drafts`;
     const { token } = await oAuth2Client.getAccessToken();
     const config = generateConfig(url, token);
     const response = await axios(config);
@@ -157,16 +220,22 @@ async function getDrafts(req, res) {
 
 async function readMail(req, res) {
   try {
-    console.log('req ------>', req.params.messageId);
-    const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.messageId}`;
-    const { token } = await oAuth2Client.getAccessToken();
-    const config = generateConfig(url, token);
-    const response = await axios(config);
+    // const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${req.params.messageId}`;
+    // const { token } = await oAuth2Client.getAccessToken();
+    // const config = generateConfig(url, token);
+    // const response = await axios(config);
 
-    let data = await response.data;
+    const gmail = google.gmail({ version: 'v1', auth: oAuth2Client })
+    const response = await gmail.users.messages.get({
+      userId: 'me',
+      id: req.params.messageId,
+      format: 'full' // Esto es importante para obtener el cuerpo del mensaje
+    });
 
-    console.log(data);
-    res.json(data);
+    console.log('ready read email', response)
+
+    // return data
+    res.json(response);
   } catch (error) {
     console.log(error);
     res.send(error);
@@ -178,7 +247,8 @@ module.exports = {
   sendMail,
   getDrafts,
   readMail,
-  listenForMessages, 
-  test,
-  endPoint
+  // listenForMessages,
+  watch,
+  endPoint,
+  login
 };

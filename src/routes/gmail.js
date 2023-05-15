@@ -1,14 +1,15 @@
 const { Router } = require('express')
-const { getUser, sendMail, getDrafts, readMail, listenForMessages, test, endPoint } = require('../controllers/gmail')
+const { getUser, sendMail, getDrafts, readMail, watch, endPoint, login } = require('../controllers/gmail')
 
 const router = Router()
 
-router.get('/mail/user/:email', getUser)
+router.get('/mail/user', getUser)
 router.get('/mail/send', sendMail);
-router.get('/mail/drafts/:email',  getDrafts);
+router.get('/mail/drafts',  getDrafts);
 router.get('/mail/read/:messageId',  readMail);
-router.get('/mail/test', test);
-router.get('/mail/listen', listenForMessages);
-router.get('/mail/endPoint', endPoint);
+router.get('/mail/watch', watch);
+// router.get('/mail/listen', listenForMessages);
+router.post('/mail/endPoint', endPoint);
+router.post('/mail/login', login);
 
 module.exports = router
