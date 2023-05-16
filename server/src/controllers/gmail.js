@@ -5,7 +5,6 @@ const { google } = require("googleapis");
 const {OAuth2Client} = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 
-
 // const {PubSub} = require('@google-cloud/pubsub');
 
 require("dotenv").config();
@@ -17,7 +16,6 @@ const oAuth2Client = new google.auth.OAuth2(
   process.env.REDIRECT_URI
 );
 const client = new OAuth2Client(process.env.CLIENT_ID);
-
 
 oAuth2Client.on('tokens', (tokens) => {
   if (tokens.refresh_token) {
@@ -50,8 +48,8 @@ async function watch(req, res) {
       requestBody: {
         // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
         topicName: `projects/famous-robot-386420/topics/famous-robot-topic`,
-        labelIds: ['INBOX'],
-        labelFilterAction: 'INCLUDE'
+        labelIds: ['INBOX', 'UNREAD'],
+        labelFilterAction: 'include'
       }
     });
     console.log(response.data);
@@ -63,38 +61,80 @@ async function watch(req, res) {
   }
 }
 
+async function getHistory(req, res){
+  try {
+    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83385 }
+    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83399 }
+    // { emailAddress: 'jaac219@gmail.com', historyId: 5698852 }
+    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83471 }
+    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83485 }
+    // { emailAddress: 'jaac219@gmail.com', historyId: 5698980 }
+
+//     { emailAddress: 'jaac219@gmail.com', historyId: 5698997 }
+// { emailAddress: 'jaac219@gmail.com', historyId: 5699005 }
+// { emailAddress: 'jaac219@gmail.com', historyId: 5699014 }
+// { emailAddress: 'jaac219@gmail.com', historyId: 5699059 }
+
+    const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
+    const rs = await gmail.users.history.list({
+      userId: 'me',
+      startHistoryId: `${req.params.historyId}`
+    })
+
+    const { history } = rs.data
+
+    let messageId = history[0].messages[0].id
+    console.log(messageId, 'history ----->');
+
+    const resMessage = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId
+    })
+
+    let message = Buffer.from(resMessage.data.payload.parts[0].body.data, 'base64').toString(
+      'utf-8'
+    );
+    console.log(message, 'Message --->');
+  } catch (error) {
+    console.log(error);
+  }
+}
+
 async function endPoint(req, res){
   try {
-    // if (globalTokens.refresh_token) {
+    if (globalTokens.refresh_token) {
       const { body: { message: { data, messageId, publishTime, attributes } }} = req
       // console.log(req.header('Authorization'), 'Message ------->');
       req.params.messageId = messageId
 
-      const bearer = req.header('Authorization');
-      const [, token] = bearer.match(/Bearer (.*)/);
-
-      console.log('token: ');
+      // const bearer = req.header('Authorization');
+      // const [, token] = bearer.match(/Bearer (.*)/);
     
+      // const decodedToken = jwt.decode(token);
 
-      const decodedToken = jwt.decode(token);
-
-      const ticket = await client.verifyIdToken({
-        idToken: token,
-        audience: decodedToken.aud,
-      });
+      // const ticket = await client.verifyIdToken({
+      //   idToken: token,
+      //   audience: decodedToken.aud,
+      // });
       
-      const payload = ticket.getPayload();
-      const userid = payload['sub'];
+      // const payload = ticket.getPayload();
+      // const userid = payload['sub'];
 
       // The message is a unicode string encoded in base64.
-      const message = Buffer.from(req.body.message.data, 'base64').toString(
+      let message = Buffer.from(data, 'base64').toString(
         'utf-8'
       );
 
+      message = JSON.parse(message)
       console.log(message);
-      
-    // }
-    res.status(200)
+
+      // const resMessage = await gmail.users.messages.get({
+      //   userId: 'me',
+      //   id: history.history[0].messages[0].id
+      // })
+      // JSON.stringify(res.data, null, 4)
+    }
+    res.status(200).send()
   } catch (error) {
     console.log(error);
     res.status(400)
@@ -250,5 +290,6 @@ module.exports = {
   // listenForMessages,
   watch,
   endPoint,
-  login
+  login,
+  getHistory
 };

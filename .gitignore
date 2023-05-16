@@ -91,9 +91,8 @@ bower_components
 build/Release
 
 # Dependency directories
-server/node_modules/
-client/node_modules/
 node_modules/
+**/node_modules/
 jspm_packages/
 
 # Snowpack dependency directory (https://snowpack.dev/)
@@ -218,6 +217,6 @@ $RECYCLE.BIN/
 *.lnk
 
 #session whatsapp web
-.wwebjs_auth/
+**/.wwebjs_auth/
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,macos,linux,node
