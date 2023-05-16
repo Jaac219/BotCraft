@@ -7,7 +7,7 @@ function App() {
 
   const onSuccess = (response)=>{
     console.log(response);
-    fetch('http://127.0.0.1:5006/api/v1/gmail/mail/login', {
+    fetch('http://127.0.0.1:5006/api/v1/mail/login', {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
