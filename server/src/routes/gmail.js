@@ -1,5 +1,5 @@
 const { Router } = require('express')
-const { getUser, sendMail, getDrafts, readMail, watch, endPoint, login, getHistory } = require('../controllers/gmail')
+const { getUser, sendMail, getDrafts, readMail, watch, endPoint, login, getHistory, getMessage } = require('../controllers/gmail')
 
 const router = Router()
 
@@ -12,5 +12,6 @@ router.get('/watch', watch);
 router.post('/endPoint', endPoint);
 router.post('/login', login);
 router.get('/getHistory/:historyId', getHistory);
+router.get('/getMessage/:messageId', getMessage);
 
 module.exports = router

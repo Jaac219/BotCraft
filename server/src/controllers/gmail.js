@@ -47,8 +47,8 @@ async function watch(req, res) {
       requestBody: {
         // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
         topicName: `projects/famous-robot-386420/topics/famous-robot-topic`,
-        labelIds: ['INBOX', 'UNREAD'],
-        labelFilterAction: 'include'
+        labelIds: ['INBOX'],
+        labelFilterAction: 'INCLUDE'
       }
     });
     console.log(response.data);
@@ -71,26 +71,38 @@ async function getHistory(req, res){
 
     const { history } = rs.data
 
-    let messageId = history[0].messages[0].id
-    console.log(messageId, 'history ----->');
+    // let messageId = history[0].messages[0].id
+    // console.log(messageId, 'history ----->');
 
-    const resMessage = await gmail.users.messages.get({
-      userId: 'me',
-      id: messageId
-    })
+    res.json(history)
 
-    let message = Buffer.from(resMessage.data.payload.parts[0].body.data, 'base64').toString(
-      'utf-8'
-    );
-    console.log(message, 'Message --->');
+
   } catch (error) {
     console.log(error);
   }
 }
 
+async function getMessage(req, res){
+  try {
+    const resMessage = await gmail.users.messages.get({
+      userId: 'me',
+      id: req.params.messageId
+    })
+
+    // let message = Buffer.from(resMessage.data.payload.parts[0].body.data, 'base64').toString(
+    //   'utf-8'
+    // );
+    // console.log(message, 'Message --->');
+
+    res.json(resMessage)
+  } catch (e) {
+    console.log(e);
+  }
+}
+
 async function endPoint(req, res){
   try {
-    if (globalTokens.refresh_token) {
+    // if (globalTokens.refresh_token) {
       const { body: { message: { data, messageId, publishTime, attributes } }} = req
 
       // const bearer = req.header('Authorization');
@@ -106,8 +118,8 @@ async function endPoint(req, res){
       message = JSON.parse(message)
       console.log(message);
 
-    }
-    res.status(200)
+    // }
+    res.sendStatus(200)
   } catch (error) {
     console.log(error);
     res.status(400)
@@ -257,5 +269,6 @@ module.exports = {
   watch,
   endPoint,
   login,
-  getHistory
+  getHistory,
+  getMessage
 };
