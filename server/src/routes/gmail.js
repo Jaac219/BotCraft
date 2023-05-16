@@ -3,14 +3,14 @@ const { getUser, sendMail, getDrafts, readMail, watch, endPoint, login, getHisto
 
 const router = Router()
 
-router.get('/mail/user', getUser)
-router.get('/mail/send', sendMail);
-router.get('/mail/drafts',  getDrafts);
-router.get('/mail/read/:messageId',  readMail);
-router.get('/mail/watch', watch);
-// router.get('/mail/listen', listenForMessages);
-router.post('/mail/endPoint', endPoint);
-router.post('/mail/login', login);
-router.get('/mail/getHistory/:historyId', getHistory);
+router.get('/user', getUser)
+router.get('/send', sendMail);
+router.get('/drafts',  getDrafts);
+router.get('/read/:messageId',  readMail);
+router.get('/watch', watch);
+// router.get('/listen', listenForMessages);
+router.post('/endPoint', endPoint);
+router.post('/login', login);
+router.get('/getHistory/:historyId', getHistory);
 
 module.exports = router

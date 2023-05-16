@@ -6,6 +6,6 @@ const gmailRoute = require('./gmail')
 const routes = Router()
 
 // routes.use('/message', messagesRoute)
-routes.use('/gmail', gmailRoute)
+routes.use('/mail', gmailRoute)
 
 module.exports = routes

@@ -2,7 +2,6 @@ const axios = require("axios");
 const { generateConfig } = require("../utils");
 const nodemailer = require("nodemailer");
 const { google } = require("googleapis");
-const {OAuth2Client} = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 
 // const {PubSub} = require('@google-cloud/pubsub');
@@ -15,7 +14,6 @@ const oAuth2Client = new google.auth.OAuth2(
   process.env.CLIENT_SECRET,
   process.env.REDIRECT_URI
 );
-const client = new OAuth2Client(process.env.CLIENT_ID);
 
 oAuth2Client.on('tokens', (tokens) => {
   if (tokens.refresh_token) {
@@ -23,6 +21,8 @@ oAuth2Client.on('tokens', (tokens) => {
     oAuth2Client.setCredentials(tokens);
   }
 });
+
+const gmail = google.gmail({ version: 'v1', auth: oAuth2Client })
 
 async function login(req, res){
   const { code, authuser, prompt, scope } = req.body
@@ -33,7 +33,6 @@ async function login(req, res){
 
 async function watch(req, res) {
   try {
-    const gmail = google.gmail({ version: 'v1', auth: oAuth2Client })
     // const resp = await gmail.users.labels.list({
     //   userId: 'me'
     // })
@@ -63,19 +62,8 @@ async function watch(req, res) {
 
 async function getHistory(req, res){
   try {
-    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83385 }
-    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83399 }
-    // { emailAddress: 'jaac219@gmail.com', historyId: 5698852 }
-    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83471 }
-    // { emailAddress: 'dev16@codecraftdev.com', historyId: 83485 }
-    // { emailAddress: 'jaac219@gmail.com', historyId: 5698980 }
+    // { emailAddress: 'jaac219@gmail.com', historyId: 5700040 }
 
-//     { emailAddress: 'jaac219@gmail.com', historyId: 5698997 }
-// { emailAddress: 'jaac219@gmail.com', historyId: 5699005 }
-// { emailAddress: 'jaac219@gmail.com', historyId: 5699014 }
-// { emailAddress: 'jaac219@gmail.com', historyId: 5699059 }
-
-    const gmail = google.gmail({ version: 'v1', auth: oAuth2Client });
     const rs = await gmail.users.history.list({
       userId: 'me',
       startHistoryId: `${req.params.historyId}`
@@ -104,21 +92,11 @@ async function endPoint(req, res){
   try {
     if (globalTokens.refresh_token) {
       const { body: { message: { data, messageId, publishTime, attributes } }} = req
-      // console.log(req.header('Authorization'), 'Message ------->');
-      req.params.messageId = messageId
 
       // const bearer = req.header('Authorization');
       // const [, token] = bearer.match(/Bearer (.*)/);
     
       // const decodedToken = jwt.decode(token);
-
-      // const ticket = await client.verifyIdToken({
-      //   idToken: token,
-      //   audience: decodedToken.aud,
-      // });
-      
-      // const payload = ticket.getPayload();
-      // const userid = payload['sub'];
 
       // The message is a unicode string encoded in base64.
       let message = Buffer.from(data, 'base64').toString(
@@ -128,19 +106,12 @@ async function endPoint(req, res){
       message = JSON.parse(message)
       console.log(message);
 
-      // const resMessage = await gmail.users.messages.get({
-      //   userId: 'me',
-      //   id: history.history[0].messages[0].id
-      // })
-      // JSON.stringify(res.data, null, 4)
     }
-    res.status(200).send()
+    res.status(200)
   } catch (error) {
     console.log(error);
     res.status(400)
   }
-  // let ms = await readMail(req, res)
-  // console.log('New Message', ms);
 }
 
 // async function authenticateImplicitWithAdc() {
@@ -152,7 +123,6 @@ async function endPoint(req, res){
 //     projectId: 'famous-robot-386420',
 //   });
 //   const [buckets] = await storage.getBuckets();
-//   console.log('Buckets:');
 
 //   for (const bucket of buckets) {
 //     console.log(`- ${bucket.name}`);
@@ -200,7 +170,6 @@ async function endPoint(req, res){
 
 async function sendMail(req, res) {
   try {
-    console.log('global tokens', globalTokens);
     const accessToken = await oAuth2Client.getAccessToken();
 
     const auth = {
@@ -265,7 +234,6 @@ async function readMail(req, res) {
     // const config = generateConfig(url, token);
     // const response = await axios(config);
 
-    const gmail = google.gmail({ version: 'v1', auth: oAuth2Client })
     const response = await gmail.users.messages.get({
       userId: 'me',
       id: req.params.messageId,
@@ -274,7 +242,6 @@ async function readMail(req, res) {
 
     console.log('ready read email', response)
 
-    // return data
     res.json(response);
   } catch (error) {
     console.log(error);
@@ -287,7 +254,6 @@ module.exports = {
   sendMail,
   getDrafts,
   readMail,
-  // listenForMessages,
   watch,
   endPoint,
   login,
