@@ -31,6 +31,9 @@ async function login(req, res){
   oAuth2Client.setCredentials(tokens)
 }
 
+// En el tema de la suscripcion hay que dar permisos al siguiente 
+// correo para que pueda notificar los nuevos correos: gmail-api-push@system.gserviceaccount.com
+// dar permisos de Administrador de Pub/Sub
 async function watch(req, res) {
   try {
     // const resp = await gmail.users.labels.list({
@@ -46,7 +49,7 @@ async function watch(req, res) {
       userId: 'me',
       requestBody: {
         // Replace with `projects/${PROJECT_ID}/topics/${TOPIC_NAME}`
-        topicName: `projects/famous-robot-386420/topics/famous-robot-topic`,
+        topicName: `projects/test-api-gmail-387119/topics/Suscription-test`,
         labelIds: ['INBOX'],
         labelFilterAction: 'INCLUDE'
       }
@@ -72,11 +75,8 @@ async function getHistory(req, res){
     const { history } = rs.data
 
     // let messageId = history[0].messages[0].id
-    // console.log(messageId, 'history ----->');
 
     res.json(history)
-
-
   } catch (error) {
     console.log(error);
   }
@@ -102,7 +102,7 @@ async function getMessage(req, res){
 
 async function endPoint(req, res){
   try {
-    // if (globalTokens.refresh_token) {
+    if (globalTokens.refresh_token) {
       const { body: { message: { data, messageId, publishTime, attributes } }} = req
 
       // const bearer = req.header('Authorization');
@@ -118,7 +118,7 @@ async function endPoint(req, res){
       message = JSON.parse(message)
       console.log(message);
 
-    // }
+    }
     res.sendStatus(200)
   } catch (error) {
     console.log(error);

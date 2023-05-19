@@ -1,5 +1,4 @@
-
-import { GoogleLogin, useGoogleLogin, googleLogout } from '@react-oauth/google';
+import { useGoogleLogin, googleLogout } from '@react-oauth/google';
 
 import './App.css';
 
@@ -16,9 +15,27 @@ function App() {
     })  
   }
 
+  // const scopes = [
+  //   'profile',
+  //   'email',
+  //   'https://www.googleapis.com/auth/gmail.addons.current.action.compose',
+  //   'https://www.googleapis.com/auth/gmail.addons.current.message.action',
+  //   'https://www.googleapis.com/auth/gmail.labels',
+  //   'https://www.googleapis.com/auth/iam.test',
+  //   'https://www.googleapis.com/auth/gmail.modify',
+  //   'https://www.googleapis.com/auth/gmail.compose',
+  //   'https://www.googleapis.com/auth/gmail.readonly',
+  //   'https://www.googleapis.com/auth/gmail.metadata',
+  //   'https://www.googleapis.com/auth/gmail.insert',
+  //   'https://www.googleapis.com/auth/gmail.settings.basic',
+  //   'https://www.googleapis.com/auth/gmail.settings.sharing',
+  // ];
+
   const login = useGoogleLogin({
     onSuccess,
+    // clientId: '15508255064-25c233f3fr2pu7jr3sju3afgo8v7pqgb.apps.googleusercontent.com',
     flow: 'auth-code',
+    // scope: ['https://www.googleapis.com/auth/gmail.readonly'],
     accessType: "offline"
   });
 
